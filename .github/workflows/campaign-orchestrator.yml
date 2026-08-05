@@ -1,0 +1,118 @@
+name: Campaign Orchestrator
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/campaign-orchestrator.yml
+  workflow_dispatch:
+    inputs:
+      campaign_name:
+        description: Human-readable campaign name
+        required: true
+        type: string
+      mode:
+        description: Execution safety mode
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - execute
+      campaign_number:
+        description: Optional GitHub Security Campaign number
+        required: false
+        type: string
+      tempo_traceparent:
+        description: Optional W3C traceparent propagated to Grafana Tempo/OpenTelemetry
+        required: false
+        type: string
+  repository_dispatch:
+    types:
+      - campaign.trigger
+      - tempo.trigger
+
+permissions:
+  contents: read
+  actions: read
+  security-events: read
+
+concurrency:
+  group: campaign-${{ github.repository }}-${{ inputs.campaign_name || github.event.client_payload.campaign_name || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  orchestrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CAMPAIGN_NAME: ${{ inputs.campaign_name || github.event.client_payload.campaign_name || 'external-campaign' }}
+      EXECUTION_MODE: ${{ inputs.mode || github.event.client_payload.mode || 'dry-run' }}
+      CAMPAIGN_NUMBER: ${{ inputs.campaign_number || github.event.client_payload.campaign_number || '' }}
+      TRACEPARENT: ${{ inputs.tempo_traceparent || github.event.client_payload.tempo_traceparent || '' }}
+    steps:
+      - name: Validate dispatch contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$EXECUTION_MODE" in
+            dry-run|execute) ;;
+            *) echo "Invalid execution mode: $EXECUTION_MODE" >&2; exit 64 ;;
+          esac
+          printf 'campaign=%s\nmode=%s\ncampaign_number=%s\ntraceparent_present=%s\n' \
+            "$CAMPAIGN_NAME" "$EXECUTION_MODE" "$CAMPAIGN_NUMBER" "$([[ -n "$TRACEPARENT" ]] && echo true || echo false)"
+
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Produce immutable execution manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          jq -n \
+            --arg campaign "$CAMPAIGN_NAME" \
+            --arg mode "$EXECUTION_MODE" \
+            --arg campaign_number "$CAMPAIGN_NUMBER" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg ref "$GITHUB_REF" \
+            --arg sha "$GITHUB_SHA" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg actor "$GITHUB_ACTOR" \
+            --arg event "$GITHUB_EVENT_NAME" \
+            --arg traceparent "$TRACEPARENT" \
+            '{
+              schema: "urn:narrowmender:campaign-execution:1",
+              campaign: $campaign,
+              mode: $mode,
+              campaign_number: $campaign_number,
+              repository: $repository,
+              ref: $ref,
+              sha: $sha,
+              run_id: $run_id,
+              actor: $actor,
+              event: $event,
+              traceparent: (if $traceparent == "" then null else $traceparent end)
+            }' > out/campaign-execution.json
+          cat out/campaign-execution.json
+
+      - name: Execute repository campaign hook
+        if: env.EXECUTION_MODE == 'execute'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -x ./scripts/campaign.sh ]]; then
+            ./scripts/campaign.sh out/campaign-execution.json
+          else
+            echo "No executable ./scripts/campaign.sh exists; refusing to invent campaign behavior." >&2
+            exit 78
+          fi
+
+      - name: Upload execution evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: campaign-execution-${{ github.run_id }}
+          path: out/campaign-execution.json
+          if-no-files-found: error
+          retention-days: 30
