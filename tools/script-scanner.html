@@ -1,0 +1,1188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Script Scanner — Advanced Pure Browser Toolkit</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #020813;
+      --panel: #07131f;
+      --panel-border: #10263b;
+      --accent: #0ea5a8;
+      --accent-soft: rgba(14, 165, 168, 0.15);
+      --accent-strong: rgba(14, 165, 168, 0.35);
+      --text: #e6eef8;
+      --text-soft: #9fb7c6;
+      --text-muted: #8296a3;
+      --danger: #f87171;
+      --warning: #facc15;
+      --safe: #34d399;
+      font-family: "Inter", "Segoe UI", Roboto, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px 18px 64px;
+      background: radial-gradient(circle at 20% 20%, rgba(14, 165, 233, 0.15), transparent 60%),
+                  radial-gradient(circle at 80% 0%, rgba(14, 165, 168, 0.12), transparent 55%),
+                  var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 38px);
+      color: #7dd3fc;
+      letter-spacing: -0.02em;
+    }
+
+    .wrap {
+      max-width: 1220px;
+      margin: 0 auto;
+    }
+
+    .tagline {
+      font-size: 15px;
+      color: var(--text-soft);
+      margin-bottom: 18px;
+      max-width: 800px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border-radius: 16px;
+      border: 1px solid var(--panel-border);
+      padding: 18px 20px 22px;
+      margin-bottom: 18px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+      backdrop-filter: blur(22px);
+    }
+
+    .panel h2 {
+      margin-top: 0;
+      margin-bottom: 12px;
+      font-size: 18px;
+      letter-spacing: 0.02em;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-top: 12px;
+    }
+
+    label {
+      font-size: 13px;
+      color: var(--text-soft);
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    input[type="text"], textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid #112435;
+      background: #050f19;
+      color: var(--text);
+      transition: border 0.2s ease, box-shadow 0.2s ease;
+      font-size: 14px;
+    }
+
+    input[type="text"]:focus,
+    textarea:focus {
+      outline: none;
+      border-color: rgba(125, 211, 252, 0.7);
+      box-shadow: 0 0 0 3px rgba(125, 211, 252, 0.15);
+    }
+
+    textarea {
+      min-height: 160px;
+      resize: vertical;
+      line-height: 1.4;
+    }
+
+    button {
+      background: linear-gradient(135deg, #0ea5a8, #2dd4bf);
+      color: #012629;
+      border: none;
+      padding: 11px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      box-shadow: 0 10px 30px rgba(45, 212, 191, 0.22);
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 16px 38px rgba(45, 212, 191, 0.28);
+    }
+
+    button.secondary {
+      background: rgba(51, 65, 85, 0.65);
+      color: var(--text);
+      box-shadow: none;
+    }
+
+    button.ghost {
+      background: transparent;
+      border: 1px solid rgba(125, 211, 252, 0.25);
+      color: var(--text);
+      box-shadow: none;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.6);
+      font-size: 13px;
+      vertical-align: top;
+    }
+
+    thead th {
+      background: rgba(10, 40, 60, 0.6);
+      color: #9be7ff;
+      font-weight: 600;
+      border-bottom: 1px solid rgba(125, 211, 252, 0.1);
+    }
+
+    tbody tr:hover {
+      background: rgba(15, 30, 45, 0.55);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 12px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .pill-ready { background: rgba(148, 163, 184, 0.16); color: #d1d5db; }
+    .pill-active { background: var(--accent-strong); color: #0f172a; }
+    .pill-error { background: rgba(248, 113, 113, 0.3); color: #fee2e2; }
+    .pill-success { background: rgba(52, 211, 153, 0.25); color: #34d399; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .summary-card {
+      border: 1px solid rgba(125, 211, 252, 0.12);
+      border-radius: 12px;
+      padding: 16px 18px;
+      background: rgba(7, 25, 35, 0.65);
+    }
+
+    .summary-card strong {
+      display: block;
+      font-size: 26px;
+      margin-bottom: 4px;
+      letter-spacing: -0.02em;
+    }
+
+    .summary-card span {
+      font-size: 13px;
+      color: var(--text-soft);
+    }
+
+    .notes {
+      background: rgba(2, 15, 28, 0.82);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text-soft);
+      max-height: 260px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    pre.code-sample {
+      background: rgba(3, 15, 27, 0.85);
+      border: 1px solid rgba(125, 211, 252, 0.12);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #cfeffd;
+      max-height: 220px;
+      overflow: auto;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      margin: 0 6px 6px 0;
+      font-weight: 600;
+      background: rgba(148, 163, 184, 0.18);
+      color: #e2e8f0;
+    }
+
+    .chip.danger { background: rgba(248, 113, 113, 0.2); color: #fecaca; }
+    .chip.warning { background: rgba(250, 204, 21, 0.2); color: #fef08a; }
+    .chip.safe { background: rgba(52, 211, 153, 0.2); color: #bbf7d0; }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .controls input[type="search"] {
+      width: 260px;
+      max-width: 100%;
+      padding: 9px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(15, 23, 42, 0.7);
+      color: var(--text);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 32px 20px;
+      border: 1px dashed rgba(148, 163, 184, 0.25);
+      border-radius: 14px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    footer {
+      margin-top: 28px;
+      color: var(--text-soft);
+      font-size: 13px;
+    }
+
+    details {
+      background: rgba(8, 20, 33, 0.75);
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      padding: 12px 14px;
+      margin-bottom: 12px;
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: #bae6fd;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .history-item {
+      background: rgba(2, 21, 31, 0.7);
+      border-radius: 10px;
+      padding: 12px 14px;
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge {
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      background: rgba(125, 211, 252, 0.18);
+      color: #bae6fd;
+      letter-spacing: 0.04em;
+    }
+
+    .score-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+    }
+
+    .score-indicator[data-level="high"] { color: var(--danger); }
+    .score-indicator[data-level="medium"] { color: var(--warning); }
+    .score-indicator[data-level="low"] { color: var(--safe); }
+
+    @media (max-width: 720px) {
+      .section-header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .controls {
+        width: 100%;
+      }
+
+      .controls button,
+      .controls input[type="search"] {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header style="margin-bottom: 26px;">
+      <h1>Script Scanner — Pure Browser Intelligence Suite</h1>
+      <p class="tagline">Fortified static analysis for inline and external scripts. Works entirely in-browser with zero build steps. Fetch remote HTML, paste snapshots, or live-scan the current tab. Enhanced heuristics, entropy checks, obfuscation detection, suspicious endpoint extraction, and history snapshots help analysts triage quickly.</p>
+    </header>
+
+    <section class="panel" aria-labelledby="input-panel">
+      <h2 id="input-panel">Acquisition</h2>
+      <div class="row">
+        <div style="flex: 1 1 360px; min-width: 240px;">
+          <label for="urlInput">Target URL</label>
+          <input id="urlInput" type="text" placeholder="https://example.com" autocomplete="off" />
+        </div>
+        <div class="controls">
+          <button id="fetchBtn">Fetch &amp; Analyze</button>
+          <button id="scanCurrentBtn" class="secondary">Scan Current Page</button>
+          <button id="clearBtn" class="ghost">Reset</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div style="flex: 1 1 100%;">
+          <label for="pasteHtml">Paste HTML Snapshot (fallback when CORS denies fetch)</label>
+          <textarea id="pasteHtml" placeholder="Paste DOM HTML here..."></textarea>
+        </div>
+      </div>
+      <div class="row">
+        <button id="analyzePastedBtn">Analyze Pasted HTML</button>
+        <button id="downloadReportBtn" class="secondary">Download JSON Report</button>
+        <button id="copySummaryBtn" class="ghost">Copy Summary</button>
+      </div>
+
+      <details>
+        <summary>Runtime Monitoring Bookmarklet</summary>
+        <p class="tagline" style="margin-top: 10px;">Inject into the target page console to watch for dynamic script injection. Logs to the browser console; same-origin required for automated HTML extraction.</p>
+        <pre class="code-sample" id="bookmarklet"></pre>
+      </details>
+    </section>
+
+    <section id="resultPanel" class="panel" style="display:none" aria-live="polite">
+      <div class="section-header">
+        <div>
+          <span id="summaryPill" class="pill pill-ready">Idle</span>
+          <span id="summaryText" class="tagline"></span>
+        </div>
+        <div class="controls">
+          <input id="searchInput" type="search" placeholder="Filter scripts / flags" aria-label="Filter report" />
+          <button id="expandAllBtn" class="ghost">Expand All</button>
+          <button id="collapseAllBtn" class="ghost">Collapse All</button>
+        </div>
+      </div>
+
+      <div class="summary-grid" role="list">
+        <div class="summary-card" role="listitem">
+          <strong id="externalCount">0</strong>
+          <span>External scripts</span>
+        </div>
+        <div class="summary-card" role="listitem">
+          <strong id="inlineCount">0</strong>
+          <span>Inline scripts</span>
+        </div>
+        <div class="summary-card" role="listitem">
+          <strong id="handlerCount">0</strong>
+          <span>Inline event handlers</span>
+        </div>
+        <div class="summary-card" role="listitem">
+          <strong id="riskScore">0</strong>
+          <span>Total risk score</span>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <h2 style="margin: 0;">External Scripts</h2>
+        <span class="badge" id="reportCount">0 entries</span>
+      </div>
+      <div id="externalList"></div>
+
+      <div class="section-header">
+        <h2 style="margin: 0;">Inline Script Heuristics</h2>
+      </div>
+      <div id="inlineList"></div>
+
+      <div class="section-header">
+        <h2 style="margin: 0;">Inline Event Handlers</h2>
+      </div>
+      <div id="handlerList"></div>
+
+      <div class="section-header">
+        <h2 style="margin: 0;">Notes / Flags</h2>
+      </div>
+      <div id="notes" class="notes" role="log"></div>
+    </section>
+
+    <section class="panel" id="historyPanel" style="display:none">
+      <h2>History (local to this browser)</h2>
+      <p class="tagline">Recent scans are cached client-side for quick recall. Nothing is transmitted to any server.</p>
+      <div id="historyList" class="history-list"></div>
+    </section>
+
+    <footer>
+      Built for defensive research. Detects obfuscation signals, suspicious keywords, and risky endpoints. Provides no instructions for evasion.
+    </footer>
+  </div>
+
+  <template id="externalRowTemplate">
+    <details class="external-entry" data-entry-type="external">
+      <summary>
+        <div class="score-indicator">
+          <span class="chip">#<span class="entry-index"></span></span>
+          <span class="entry-summary"></span>
+          <span class="entry-score chip"></span>
+        </div>
+      </summary>
+      <div class="entry-body" style="margin-top:12px; display:grid; gap:10px;">
+        <div><strong>URL:</strong> <a class="entry-link" target="_blank" rel="noopener noreferrer"></a></div>
+        <div class="entry-meta"></div>
+        <div class="entry-flags"></div>
+        <div class="entry-sample"></div>
+      </div>
+    </details>
+  </template>
+
+  <template id="inlineRowTemplate">
+    <details class="inline-entry" data-entry-type="inline">
+      <summary>
+        <div class="score-indicator">
+          <span class="chip">#<span class="entry-index"></span></span>
+          <span class="entry-summary"></span>
+          <span class="entry-score chip"></span>
+        </div>
+      </summary>
+      <div class="entry-body" style="margin-top:12px; display:grid; gap:10px;">
+        <div class="entry-meta"></div>
+        <div class="entry-flags"></div>
+        <div class="entry-sample"></div>
+      </div>
+    </details>
+  </template>
+
+  <template id="handlerRowTemplate">
+    <details class="handler-entry" data-entry-type="handler">
+      <summary>
+        <div class="score-indicator" data-level="low">
+          <span class="chip">#<span class="entry-index"></span></span>
+          <span class="entry-summary"></span>
+        </div>
+      </summary>
+      <div class="entry-body" style="margin-top:12px; display:grid; gap:10px;">
+        <div class="entry-meta"></div>
+        <div class="entry-sample"></div>
+      </div>
+    </details>
+  </template>
+
+  <script>
+    const state = {
+      lastReport: null,
+      searchTerm: '',
+      history: loadHistory()
+    };
+
+    const bookmarkletCode = `javascript:(function(){const log=(type,msg)=>console.log('%c[ScriptScanner]', 'color:#7dd3fc', type, msg);const obs=new MutationObserver(records=>{for(const rec of records){for(const node of rec.addedNodes){if(node.tagName==='SCRIPT'){log('New script', node.src||('[inline len='+((node.textContent||'').length)+']'));}}}});obs.observe(document.documentElement||document,{childList:true,subtree:true});window.__ScriptScannerMonitor=obs;log('Monitor attached', location.href);})();`;
+
+    const fetchBtn = document.getElementById('fetchBtn');
+    const urlInput = document.getElementById('urlInput');
+    const pasteHtml = document.getElementById('pasteHtml');
+    const analyzePastedBtn = document.getElementById('analyzePastedBtn');
+    const scanCurrentBtn = document.getElementById('scanCurrentBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const resultPanel = document.getElementById('resultPanel');
+    const externalList = document.getElementById('externalList');
+    const inlineList = document.getElementById('inlineList');
+    const handlerList = document.getElementById('handlerList');
+    const notesBox = document.getElementById('notes');
+    const summaryText = document.getElementById('summaryText');
+    const summaryPill = document.getElementById('summaryPill');
+    const reportCount = document.getElementById('reportCount');
+    const downloadBtn = document.getElementById('downloadReportBtn');
+    const copySummaryBtn = document.getElementById('copySummaryBtn');
+    const searchInput = document.getElementById('searchInput');
+    const expandAllBtn = document.getElementById('expandAllBtn');
+    const collapseAllBtn = document.getElementById('collapseAllBtn');
+    const externalTemplate = document.getElementById('externalRowTemplate');
+    const inlineTemplate = document.getElementById('inlineRowTemplate');
+    const handlerTemplate = document.getElementById('handlerRowTemplate');
+    const historyPanel = document.getElementById('historyPanel');
+    const historyList = document.getElementById('historyList');
+    const externalCount = document.getElementById('externalCount');
+    const inlineCount = document.getElementById('inlineCount');
+    const handlerCount = document.getElementById('handlerCount');
+    const riskScore = document.getElementById('riskScore');
+
+    document.getElementById('bookmarklet').textContent = bookmarkletCode;
+
+    renderHistory();
+
+    fetchBtn.addEventListener('click', handleFetch);
+    analyzePastedBtn.addEventListener('click', analyzePastedHtml);
+    scanCurrentBtn.addEventListener('click', showRuntimeInstructions);
+    clearBtn.addEventListener('click', clearInterface);
+    downloadBtn.addEventListener('click', downloadReport);
+    copySummaryBtn.addEventListener('click', copySummaryToClipboard);
+    searchInput.addEventListener('input', (e) => {
+      state.searchTerm = e.target.value.trim().toLowerCase();
+      filterEntries();
+    });
+    expandAllBtn.addEventListener('click', () => toggleDetails(true));
+    collapseAllBtn.addEventListener('click', () => toggleDetails(false));
+
+    async function handleFetch() {
+      const url = (urlInput.value || '').trim();
+      if (!url) {
+        alert('Enter a URL to fetch or paste HTML in the textarea below.');
+        return;
+      }
+
+      updateSummary('pill-active', 'Fetching target...');
+      try {
+        const start = performance.now();
+        const res = await fetch(url, { credentials: 'omit', redirect: 'follow' });
+        const latency = (performance.now() - start).toFixed(0);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const html = await res.text();
+        const type = res.headers.get('content-type') || 'unknown';
+        updateSummary('pill-active', `Analyzing (${type}, ${latency} ms)`);
+        await processHtml(html, url, { fetchedUrl: url, headers: Object.fromEntries(res.headers.entries()), latency });
+      } catch (err) {
+        console.error(err);
+        updateSummary('pill-error', `Error: ${err.message}. If blocked by CORS, paste the HTML manually.`);
+      }
+    }
+
+    async function analyzePastedHtml() {
+      const html = pasteHtml.value;
+      if (!html) {
+        alert('Paste HTML content first.');
+        return;
+      }
+      updateSummary('pill-active', 'Analyzing pasted HTML...');
+      await processHtml(html, location.href, { fetchedUrl: 'pasted-html' });
+    }
+
+    async function processHtml(html, baseUrl, meta) {
+      const report = await analyzeDocumentFromString(html, baseUrl);
+      state.lastReport = {
+        meta: {
+          referencedAt: new Date().toISOString(),
+          ...meta
+        },
+        report
+      };
+      renderReport(baseUrl, report);
+      persistHistory();
+      updateSummary('pill-success', `Completed analysis at ${new Date().toLocaleTimeString()}`);
+    }
+
+    function updateSummary(statusClass, message) {
+      summaryPill.className = `pill ${statusClass}`;
+      summaryPill.textContent = statusClass === 'pill-active' ? 'Working' : statusClass === 'pill-error' ? 'Error' : statusClass === 'pill-success' ? 'Done' : 'Ready';
+      summaryText.textContent = message || '';
+      resultPanel.style.display = 'block';
+    }
+
+    async function analyzeDocumentFromString(htmlSource, baseUrl) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlSource, 'text/html');
+      return analyzeDocumentObject(doc, baseUrl);
+    }
+
+    async function analyzeDocumentObject(document, baseUrl) {
+      const scripts = Array.from(document.querySelectorAll('script'));
+      const results = { external: [], inline: [], inlineHandlers: [], notes: [] };
+      let cumulativeRisk = 0;
+
+      for (const s of scripts) {
+        const src = s.getAttribute('src');
+        const typeAttr = (s.getAttribute('type') || '').toLowerCase();
+        const isModule = typeAttr.includes('module');
+        const code = s.textContent || '';
+        if (src) {
+          const { href, strippedFragment } = normalizeUrl(src, baseUrl || location.href);
+          const isData = href.startsWith('data:');
+          let dataInfo = null;
+          let decodedSummary = null;
+          if (isData) {
+            dataInfo = parseDataUrl(href);
+            if (dataInfo && typeof dataInfo.decoded === 'string') {
+              decodedSummary = await analyzeCodeString(dataInfo.decoded, { origin: 'data-url', url: href });
+            }
+          }
+          const externalSummary = {
+            kind: 'external',
+            rawSrc: src,
+            href,
+            strippedFragment,
+            isData,
+            mime: dataInfo ? dataInfo.mime : null,
+            isModule,
+            decoded: decodedSummary,
+            score: decodedSummary ? decodedSummary.score : scoreUrl(href),
+            urlFindings: detectUrlSignals(href)
+          };
+          cumulativeRisk += externalSummary.score;
+          results.external.push(externalSummary);
+        } else {
+          const inlineSummary = await analyzeCodeString(code, { origin: 'inline' });
+          inlineSummary.isModule = isModule;
+          results.inline.push(inlineSummary);
+          cumulativeRisk += inlineSummary.score;
+        }
+      }
+
+      const allElements = Array.from(document.querySelectorAll('*'));
+      for (const el of allElements) {
+        for (const attr of el.getAttributeNames()) {
+          if (/^on/i.test(attr)) {
+            const val = el.getAttribute(attr) || '';
+            const snippet = val.slice(0, 320);
+            const findings = detectHandlerSignals(val);
+            const handlerSummary = {
+              tag: el.tagName,
+              attr,
+              valueSample: snippet,
+              score: scoreFindings(findings),
+              findings
+            };
+            cumulativeRisk += handlerSummary.score;
+            results.inlineHandlers.push(handlerSummary);
+          }
+        }
+      }
+
+      results.notes = collectGlobalNotes(results, cumulativeRisk);
+      results.aggregateScore = cumulativeRisk;
+      return results;
+    }
+
+    function detectUrlSignals(href) {
+      const findings = [];
+      if (href.length > 2000) findings.push({ level: 'warning', message: 'Very long URL (>2000 characters)' });
+      if (/\.php\b|\.aspx\b|\.jsp\b/i.test(href)) findings.push({ level: 'warning', message: 'Dynamic server script extension detected' });
+      if (/\b(raw|gist|paste|bin|cdn|cloudfront)\b/.test(href)) findings.push({ level: 'warning', message: 'Fetch from generic CDN / paste host' });
+      if (/data:/.test(href)) findings.push({ level: 'danger', message: 'Embedded data URL' });
+      if (/_0x[0-9a-fA-F]{3,}/.test(href)) findings.push({ level: 'danger', message: '0x obfuscation naming in URL' });
+      if (/[A-Za-z0-9+/]{40,}={0,2}/.test(href)) findings.push({ level: 'warning', message: 'Base64-like payload embedded' });
+      return findings;
+    }
+
+    function detectHandlerSignals(code) {
+      const findings = [];
+      if (/\beval\b/.test(code)) findings.push({ level: 'danger', message: 'Inline handler uses eval' });
+      if (/location\.(href|replace)/.test(code)) findings.push({ level: 'warning', message: 'Navigation mutation' });
+      if (/fetch\s*\(|XMLHttpRequest/.test(code)) findings.push({ level: 'warning', message: 'Network calls inside handler' });
+      return findings;
+    }
+
+    function collectGlobalNotes(results, score) {
+      const notes = [];
+      const external = results.external.length;
+      const inline = results.inline.length;
+      const handlers = results.inlineHandlers.length;
+      notes.push(`External scripts: ${external}. Inline: ${inline}. Inline handlers: ${handlers}.`);
+      notes.push(`Aggregate heuristic score: ${score}. Higher scores indicate more suspicious patterns.`);
+      if (results.external.some(e => e.isData)) {
+        notes.push('Detected data: URLs — review decoded payload for obfuscation.');
+      }
+      if (results.inline.some(i => i.flags.includes('eval_call'))) {
+        notes.push('Inline scripts invoking eval were detected.');
+      }
+      if (results.inline.some(i => i.flags.includes('dom_clobbering'))) {
+        notes.push('DOM clobbering patterns present — verify element access safety.');
+      }
+      if (!external && !inline) {
+        notes.push('No scripts discovered. Ensure the HTML snapshot includes script tags.');
+      }
+      return notes;
+    }
+
+    async function analyzeCodeString(code, context) {
+      const entropy = Number(shannonEntropy(code).toFixed(3));
+      const sha = await sha256Hex(code);
+      const flags = detectCodeIndicators(code);
+      const endpoints = extractNetworkEndpoints(code);
+      const score = scoreFlags(flags) + Math.min(Math.floor(endpoints.length / 2), 5);
+      return {
+        kind: context.origin,
+        length: code.length,
+        entropy,
+        sha256: sha,
+        flags,
+        endpoints,
+        score,
+        sample: code.slice(0, 600)
+      };
+    }
+
+    function scoreUrl(url) {
+      let score = 0;
+      if (/data:/.test(url)) score += 3;
+      if (/_0x[0-9a-fA-F]{3,}/.test(url)) score += 2;
+      if (/\b(eval|Function|atob|btoa)\b/.test(url)) score += 1;
+      if (/[A-Za-z0-9+/]{80,}={0,2}/.test(url)) score += 2;
+      if (/\b(raw|paste|bin|cdn|cloudfront)\b/.test(url)) score += 1;
+      return score;
+    }
+
+    function scoreFlags(flags) {
+      const severityMap = {
+        eval_call: 4,
+        Function_constructor: 3,
+        string_setTimeout_exec: 2,
+        string_decode_calls: 2,
+        long_base64_blob: 2,
+        very_long_one_line_minified: 2,
+        suspicious_keyword: 1,
+        crypto_usage: 1,
+        dom_clobbering: 2,
+        cookie_access: 1,
+        storage_access: 1,
+        network_call: 1,
+        iframe_injection: 2,
+        history_tamper: 1,
+        import_dynamic: 2
+      };
+      return flags.reduce((total, flag) => total + (severityMap[flag] || 1), 0);
+    }
+
+    function scoreFindings(findings) {
+      return findings.reduce((total, finding) => {
+        if (finding.level === 'danger') return total + 2;
+        if (finding.level === 'warning') return total + 1;
+        return total;
+      }, 0);
+    }
+
+    function detectCodeIndicators(code) {
+      const flags = [];
+      if (/_0x[0-9a-fA-F]{3,}/.test(code)) flags.push('hex_name_pattern__0x');
+      if (/\beval\s*\(/.test(code)) flags.push('eval_call');
+      if (/\bnew\s+Function\s*\(/.test(code) || /\bFunction\s*\(/.test(code)) flags.push('Function_constructor');
+      if (/\bsetTimeout\s*\(\s*['"`]/.test(code)) flags.push('string_setTimeout_exec');
+      if (/\batob\s*\(/.test(code) || /\bunescape\s*\(/.test(code) || /\bfromCharCode\s*\(/.test(code)) flags.push('string_decode_calls');
+      if (looksLikeBase64(code)) flags.push('long_base64_blob');
+      const lines = code.split(/\r?\n/);
+      if (lines.length === 1 && code.length > 2000) flags.push('very_long_one_line_minified');
+      if (/document\.cookie/.test(code)) flags.push('cookie_access');
+      if (/localStorage|sessionStorage|indexedDB/.test(code)) flags.push('storage_access');
+      if (/fetch\s*\(|XMLHttpRequest|navigator\.sendBeacon/.test(code)) flags.push('network_call');
+      if (/postMessage\s*\(/.test(code)) flags.push('postMessage_usage');
+      if (/history\.(pushState|replaceState)/.test(code)) flags.push('history_tamper');
+      if (/import\s*\(/.test(code)) flags.push('import_dynamic');
+      if (/document\.write/.test(code)) flags.push('document_write');
+      if (/Crypto|SubtleCrypto/.test(code)) flags.push('crypto_usage');
+      if (/(?:querySelector|getElementById)\(['"]\w+['"]\)/.test(code) && /(window|document)\[/.test(code)) flags.push('dom_clobbering');
+      if (/iframe/.test(code) && /document\.body\.append/.test(code)) flags.push('iframe_injection');
+      if (/[^\w]atob\([^)]{50,}\)/.test(code)) flags.push('encoded_payload');
+      if (/(?:shellcode|powershell|cmd\.exe)/i.test(code)) flags.push('suspicious_keyword');
+      return flags;
+    }
+
+    function extractNetworkEndpoints(code) {
+      const regex = /https?:\/\/[^'"\s)]+/gi;
+      const endpoints = new Set();
+      let match;
+      while ((match = regex.exec(code)) !== null) {
+        endpoints.add(match[0]);
+      }
+      return Array.from(endpoints).slice(0, 20);
+    }
+
+    function shannonEntropy(s) {
+      if (!s || s.length === 0) return 0;
+      const counts = Object.create(null);
+      for (const ch of s) counts[ch] = (counts[ch] || 0) + 1;
+      const len = s.length;
+      let ent = 0;
+      for (const k in counts) {
+        const p = counts[k] / len;
+        ent -= p * Math.log2(p);
+      }
+      return ent;
+    }
+
+    function looksLikeBase64(s) {
+      return /(?:[A-Za-z0-9+/]{40,}={0,2})/.test(s);
+    }
+
+    async function sha256Hex(str) {
+      if (window.crypto?.subtle?.digest) {
+        const buf = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+        return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+      }
+      let hash = 2166136261 >>> 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = Math.imul(hash ^ str.charCodeAt(i), 16777619) >>> 0;
+      }
+      return ('00000000' + (hash >>> 0).toString(16)).slice(-8);
+    }
+
+    function normalizeUrl(u, base) {
+      try {
+        const url = new URL(u, base);
+        const params = [...url.searchParams.entries()];
+        params.sort((a, b) => a[0].localeCompare(b[0]) || a[1].localeCompare(b[1]));
+        url.search = params.length ? '?' + params.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&') : '';
+        const strippedFragment = url.href.split('#')[0];
+        return { href: url.href, strippedFragment };
+      } catch (err) {
+        return { href: String(u), strippedFragment: String(u) };
+      }
+    }
+
+    function parseDataUrl(dataUrl) {
+      try {
+        const m = dataUrl.match(/^data:([^;]+)?(;base64)?,(.*)$/s);
+        if (!m) return null;
+        const mime = m[1] || 'text/plain';
+        const isBase64 = !!m[2];
+        const payload = m[3] || '';
+        let decoded = null;
+        if (isBase64) {
+          try {
+            decoded = atob(payload);
+          } catch (e) {
+            decoded = null;
+          }
+        } else {
+          decoded = decodeURIComponent(payload);
+        }
+        return { mime, isBase64, payload, decoded };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function renderReport(baseUrl, report) {
+      externalList.innerHTML = '';
+      inlineList.innerHTML = '';
+      handlerList.innerHTML = '';
+      notesBox.textContent = '';
+
+      report.external.forEach((entry, index) => {
+        const details = externalTemplate.content.firstElementChild.cloneNode(true);
+        populateEntry(details, entry, index + 1);
+        externalList.appendChild(details);
+      });
+
+      report.inline.forEach((entry, index) => {
+        const details = inlineTemplate.content.firstElementChild.cloneNode(true);
+        populateEntry(details, entry, index + 1);
+        inlineList.appendChild(details);
+      });
+
+      report.inlineHandlers.forEach((entry, index) => {
+        const details = handlerTemplate.content.firstElementChild.cloneNode(true);
+        populateHandlerEntry(details, entry, index + 1);
+        handlerList.appendChild(details);
+      });
+
+      if (!report.external.length) {
+        externalList.innerHTML = '<div class="empty-state">No external scripts detected.</div>';
+      }
+      if (!report.inline.length) {
+        inlineList.innerHTML = '<div class="empty-state">No inline scripts detected.</div>';
+      }
+      if (!report.inlineHandlers.length) {
+        handlerList.innerHTML = '<div class="empty-state">No inline event handlers detected.</div>';
+      }
+
+      notesBox.textContent = report.notes.length ? report.notes.join('\n') : 'No special notes.';
+
+      const totalEntries = report.external.length + report.inline.length + report.inlineHandlers.length;
+      reportCount.textContent = `${totalEntries} entries`;
+      externalCount.textContent = report.external.length;
+      inlineCount.textContent = report.inline.length;
+      handlerCount.textContent = report.inlineHandlers.length;
+      riskScore.textContent = report.aggregateScore;
+    }
+
+    function populateEntry(details, entry, index) {
+      details.querySelector('.entry-index').textContent = index;
+      const summary = details.querySelector('.entry-summary');
+      const scoreChip = details.querySelector('.entry-score');
+      const scoreLevel = entry.score >= 6 ? 'danger' : entry.score >= 3 ? 'warning' : 'safe';
+      scoreChip.classList.add('chip', scoreLevel);
+      scoreChip.textContent = `Score ${entry.score}`;
+
+      if (entry.kind === 'external') {
+        summary.textContent = entry.href;
+        details.querySelector('.entry-link').textContent = entry.href;
+        details.querySelector('.entry-link').href = entry.href;
+        const metaParts = [];
+        if (entry.isModule) metaParts.push('module');
+        if (entry.mime) metaParts.push(`mime: ${entry.mime}`);
+        metaParts.push(`normalized: ${entry.strippedFragment}`);
+        if (entry.urlFindings.length) {
+          metaParts.push(entry.urlFindings.map((f) => `[${f.level.toUpperCase()}] ${f.message}`).join(' | '));
+        }
+        details.querySelector('.entry-meta').textContent = metaParts.join(' • ');
+        details.querySelector('.entry-flags').innerHTML = renderFlagChips(entry.decoded ? entry.decoded.flags : []);
+        const sampleContainer = details.querySelector('.entry-sample');
+        if (entry.decoded) {
+          sampleContainer.innerHTML = `<pre class="code-sample">${escapeHtml(entry.decoded.sample)}</pre>`;
+        } else {
+          sampleContainer.innerHTML = '<div class="tagline">No decoded inline content.</div>';
+        }
+      } else {
+        summary.textContent = `${entry.kind} script — length ${entry.length}`;
+        details.querySelector('.entry-meta').textContent = `entropy ${entry.entropy} • sha256 ${entry.sha256.slice(0, 12)}${entry.isModule ? ' • module' : ''}`;
+        details.querySelector('.entry-flags').innerHTML = renderFlagChips(entry.flags);
+        details.querySelector('.entry-sample').innerHTML = `<pre class="code-sample">${escapeHtml(entry.sample)}</pre>`;
+        scoreChip.textContent = `Score ${entry.score}`;
+      }
+
+      details.dataset.score = entry.score;
+      details.dataset.flags = (entry.decoded ? entry.decoded.flags : entry.flags || []).join(' ').toLowerCase();
+      details.dataset.summary = summary.textContent.toLowerCase();
+    }
+
+    function populateHandlerEntry(details, entry, index) {
+      details.querySelector('.entry-index').textContent = index;
+      details.querySelector('.entry-summary').textContent = `${entry.tag}.${entry.attr}`;
+      details.querySelector('.entry-meta').textContent = entry.findings.map((f) => `[${f.level}] ${f.message}`).join(' | ') || 'No additional signals';
+      details.querySelector('.entry-sample').innerHTML = `<pre class="code-sample">${escapeHtml(entry.valueSample)}</pre>`;
+      details.dataset.score = entry.score;
+      details.dataset.flags = entry.findings.map((f) => f.message).join(' ').toLowerCase();
+      details.dataset.summary = `${entry.tag}.${entry.attr}`.toLowerCase();
+    }
+
+    function renderFlagChips(flags = []) {
+      if (!flags.length) return '<div class="tagline">No direct heuristic flags.</div>';
+      return flags.map((flag) => {
+        const level = /eval|Function|iframe|obfuscation|encoded/i.test(flag) ? 'danger' : /warning|network|history|cookie|storage/i.test(flag) ? 'warning' : 'safe';
+        return `<span class="chip ${level}">${escapeHtml(flag)}</span>`;
+      }).join('');
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]));
+    }
+
+    function filterEntries() {
+      const term = state.searchTerm;
+      const entries = resultPanel.querySelectorAll('details[data-entry-type]');
+      entries.forEach((entry) => {
+        const haystack = `${entry.dataset.flags} ${entry.dataset.summary}`;
+        entry.style.display = !term || haystack.includes(term) ? '' : 'none';
+      });
+    }
+
+    function toggleDetails(open) {
+      document.querySelectorAll('details[data-entry-type]').forEach((details) => {
+        details.open = open;
+      });
+    }
+
+    function showRuntimeInstructions() {
+      const snippet = `// Copy & run within the same-origin tab to forward DOM snapshot
+(function(){
+  const html = document.documentElement.outerHTML;
+  console.log('Captured HTML length:', html.length);
+  navigator.clipboard?.writeText(html).then(() => console.log('Snapshot copied to clipboard. Paste it into Script Scanner.'));
+})();`;
+      alert('Open the target tab, open DevTools Console, paste the snippet shown next, and run it. The DOM snapshot will be copied to your clipboard if permissions allow.');
+      prompt('Copy this snippet to use inside the target page:', snippet);
+    }
+
+    function downloadReport() {
+      if (!state.lastReport) {
+        alert('No report to download yet.');
+        return;
+      }
+      const blob = new Blob([JSON.stringify(state.lastReport, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `script-scan-report-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    async function copySummaryToClipboard() {
+      if (!state.lastReport) {
+        alert('No summary available yet.');
+        return;
+      }
+      const { meta, report } = state.lastReport;
+      const summary = [
+        `Script Scanner summary (${meta.referencedAt})`,
+        `Source: ${meta.fetchedUrl}`,
+        `External scripts: ${report.external.length}`,
+        `Inline scripts: ${report.inline.length}`,
+        `Inline handlers: ${report.inlineHandlers.length}`,
+        `Aggregate score: ${report.aggregateScore}`,
+        'Top flags:',
+        ...report.inline.slice(0, 5).flatMap((entry, idx) => `  [Inline ${idx + 1}] Score ${entry.score} Flags: ${entry.flags.join(', ')}`),
+        ...report.external.slice(0, 5).flatMap((entry, idx) => `  [External ${idx + 1}] Score ${entry.score} URL: ${entry.href}`)
+      ].join('\n');
+      try {
+        await navigator.clipboard.writeText(summary);
+        summaryText.textContent = 'Summary copied to clipboard.';
+      } catch (err) {
+        console.warn('Clipboard copy failed', err);
+        alert('Clipboard copy failed. Copy manually from console.');
+        console.log(summary);
+      }
+    }
+
+    function clearInterface() {
+      urlInput.value = '';
+      pasteHtml.value = '';
+      state.lastReport = null;
+      summaryPill.className = 'pill pill-ready';
+      summaryPill.textContent = 'Idle';
+      summaryText.textContent = 'Cleared state.';
+      externalList.innerHTML = '';
+      inlineList.innerHTML = '';
+      handlerList.innerHTML = '';
+      notesBox.textContent = '';
+      resultPanel.style.display = 'none';
+      searchInput.value = '';
+      state.searchTerm = '';
+    }
+
+    function toggleHistoryPanel() {
+      historyPanel.style.display = state.history.length ? 'block' : 'none';
+    }
+
+    function persistHistory() {
+      if (!state.lastReport) return;
+      const entry = {
+        timestamp: state.lastReport.meta.referencedAt,
+        source: state.lastReport.meta.fetchedUrl,
+        external: state.lastReport.report.external.length,
+        inline: state.lastReport.report.inline.length,
+        score: state.lastReport.report.aggregateScore,
+        report: state.lastReport.report
+      };
+      state.history.unshift(entry);
+      state.history = state.history.slice(0, 8);
+      localStorage.setItem('script-scanner-history', JSON.stringify(state.history));
+      renderHistory();
+    }
+
+    function loadHistory() {
+      try {
+        const raw = localStorage.getItem('script-scanner-history');
+        if (!raw) return [];
+        return JSON.parse(raw);
+      } catch (err) {
+        console.warn('Failed to load history', err);
+        return [];
+      }
+    }
+
+    function renderHistory() {
+      historyList.innerHTML = '';
+      toggleHistoryPanel();
+      if (!state.history.length) return;
+      state.history.forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'history-item';
+        row.innerHTML = `
+          <div>
+            <div style="font-weight:600;">${escapeHtml(item.source)}</div>
+            <div class="tagline">${new Date(item.timestamp).toLocaleString()}</div>
+          </div>
+          <div style="text-align:right;">
+            <div>External: ${item.external}</div>
+            <div>Inline: ${item.inline}</div>
+            <div>Score: ${item.score}</div>
+          </div>`;
+        row.title = 'Load this report back into the results panel';
+        row.style.cursor = 'pointer';
+        row.addEventListener('click', () => {
+          if (!item.report) return;
+          state.lastReport = {
+            meta: {
+              referencedAt: item.timestamp,
+              fetchedUrl: item.source
+            },
+            report: item.report
+          };
+          renderReport(item.source, item.report);
+          updateSummary('pill-success', `Loaded history snapshot from ${new Date(item.timestamp).toLocaleString()}`);
+        });
+        historyList.appendChild(row);
+      });
+      historyPanel.style.display = 'block';
+    }
+
+    function parseDataUrlSafe(url) {
+      try {
+        return parseDataUrl(url);
+      } catch (err) {
+        console.warn('Failed to parse data URL', err);
+        return null;
+      }
+    }
+
+    // Export helpers for console usage
+    window.ScriptScanner = {
+      analyzeDocumentFromString,
+      analyzeDocumentObject,
+      lastReport: () => state.lastReport,
+      utils: {
+        normalizeUrl,
+        shannonEntropy,
+        detectCodeIndicators,
+        parseDataUrl: parseDataUrlSafe,
+        scoreFlags,
+        extractNetworkEndpoints
+      }
+    };
+  </script>
+</body>
+</html>
