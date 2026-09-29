@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CDN-powered WebTorrent Streaming Demo</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { font-family: Inter, system-ui, Arial, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
+    .container { max-width: 960px; margin: 2rem auto; padding: 1.2rem; }
+    .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; }
+    input, button, textarea, select { width: 100%; box-sizing: border-box; border-radius: 10px; border: 1px solid #334155; background: #0b1220; color: #e2e8f0; padding: .75rem; }
+    button { cursor: pointer; font-weight: 600; background: #1d4ed8; border-color: #1e40af; }
+    button:hover { background: #2563eb; }
+    button.secondary { background: #334155; border-color: #475569; }
+    button.secondary:hover { background: #475569; }
+    .row { display: grid; grid-template-columns: 1fr auto auto; gap: .75rem; }
+    .small { color: #94a3b8; font-size: .9rem; }
+    .status { white-space: pre-wrap; max-height: 220px; overflow: auto; }
+    video { width: 100%; border-radius: 10px; background: black; min-height: 300px; }
+    code { background: #0b1220; padding: .1rem .3rem; border-radius: 5px; }
+    .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: .6rem; margin-top: .8rem; }
+    .metric { background: #0b1220; border: 1px solid #334155; border-radius: 10px; padding: .6rem; }
+    .metric .label { font-size: .8rem; color: #94a3b8; }
+    .metric .value { font-weight: 700; margin-top: .2rem; }
+    @media (max-width: 900px) {
+      .row { grid-template-columns: 1fr; }
+      .metric-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>WebTorrent Streaming (Front-end Operational Layer)</h1>
+    <p class="small">This demo handles torrent loading, validation, routing, file selection, stream rendering, and lifecycle cleanup directly in the browser using CDN-loaded libraries.</p>
+
+    <section class="card">
+      <label for="torrentInput">Magnet URI / .torrent URL</label>
+      <div class="row">
+        <input id="torrentInput" placeholder="magnet:?xt=urn:btih:..." autocomplete="off" spellcheck="false" />
+        <button id="streamBtn" style="width:180px">Start Stream</button>
+        <button id="stopBtn" class="secondary" style="width:140px">Stop</button>
+      </div>
+      <p class="small">Tip: works best with browser-playable files (MP4/WebM). For .torrent URLs, CORS must allow fetches.</p>
+    </section>
+
+    <section class="card">
+      <video id="player" controls playsinline></video>
+      <p class="small" id="selectedFile">No file selected.</p>
+      <div class="metric-grid">
+        <div class="metric"><div class="label">Status</div><div class="value" id="metricStatus">idle</div></div>
+        <div class="metric"><div class="label">Progress</div><div class="value" id="metricProgress">0%</div></div>
+        <div class="metric"><div class="label">Peers</div><div class="value" id="metricPeers">0</div></div>
+        <div class="metric"><div class="label">Download</div><div class="value" id="metricSpeed">0 KiB/s</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>Automated operations</h3>
+      <ul>
+        <li>Input validation + anti-injection guards for torrent identifiers</li>
+        <li>Automatic client boot + health checks</li>
+        <li>Heuristic media-file selection (Fuse.js scoring)</li>
+        <li>Progress + peer telemetry (throttled updates)</li>
+        <li>Automatic retries for metadata APIs (Axios + axios-retry)</li>
+        <li>Router state sync via query string (<code>?torrent=...</code>)</li>
+      </ul>
+      <textarea id="status" class="status" readonly></textarea>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.1.0/dist/fuse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios-retry@4.5.0/dist/umd/index.min.js"></script>
+
+  <script>
+    (function () {
+      const ui = {
+        input: document.getElementById('torrentInput'),
+        streamBtn: document.getElementById('streamBtn'),
+        stopBtn: document.getElementById('stopBtn'),
+        player: document.getElementById('player'),
+        selectedFile: document.getElementById('selectedFile'),
+        status: document.getElementById('status'),
+        metricStatus: document.getElementById('metricStatus'),
+        metricProgress: document.getElementById('metricProgress'),
+        metricPeers: document.getElementById('metricPeers'),
+        metricSpeed: document.getElementById('metricSpeed')
+      };
+
+      const state = {
+        client: null,
+        activeTorrent: null,
+        activeToken: null,
+        metricTimer: 0,
+        isBootstrapping: false
+      };
+
+      const mediaExt = ['.mp4', '.webm', '.mkv', '.mov', '.m4v', '.ogg'];
+      const suspiciousPattern = /<|>|javascript:|data:|vbscript:|on\w+=/i;
+      const maxInputLength = 4096;
+
+      function log(line) {
+        const now = new Date().toLocaleTimeString();
+        ui.status.value += `[${now}] ${String(line)}\n`;
+        if (ui.status.value.length > 20000) {
+          ui.status.value = ui.status.value.slice(-20000);
+        }
+        ui.status.scrollTop = ui.status.scrollHeight;
+      }
+
+      function setMetricStatus(status) {
+        ui.metricStatus.textContent = status;
+      }
+
+      function resetMetrics() {
+        ui.metricProgress.textContent = '0%';
+        ui.metricPeers.textContent = '0';
+        ui.metricSpeed.textContent = '0 KiB/s';
+      }
+
+      function updateRoute(torrentId) {
+        const url = new URL(window.location.href);
+        if (torrentId) {
+          url.searchParams.set('torrent', torrentId);
+        } else {
+          url.searchParams.delete('torrent');
+        }
+        window.history.replaceState({}, '', url);
+      }
+
+      function readRoute() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('torrent') || '';
+      }
+
+      function normalizeTorrentId(rawInput) {
+        const value = String(rawInput || '').trim();
+        if (!value) return { ok: false, message: 'Please provide a magnet URI or .torrent URL.' };
+        if (value.length > maxInputLength) return { ok: false, message: 'Torrent identifier is too long.' };
+        if (suspiciousPattern.test(value)) return { ok: false, message: 'Blocked suspicious input pattern.' };
+
+        if (/^magnet:\?/i.test(value)) return { ok: true, value };
+
+        try {
+          const parsed = new URL(value);
+          const protocol = parsed.protocol.toLowerCase();
+          if (!['http:', 'https:'].includes(protocol)) {
+            return { ok: false, message: 'Only magnet, http, and https torrent sources are supported.' };
+          }
+          if (!parsed.pathname.toLowerCase().endsWith('.torrent')) {
+            log('Warning: URL does not end with .torrent. Continuing anyway.');
+          }
+          return { ok: true, value: parsed.toString() };
+        } catch (error) {
+          return { ok: false, message: `Invalid torrent identifier: ${error.message}` };
+        }
+      }
+
+      function bootClient() {
+        if (state.client) return state.client;
+        if (!window.WebTorrent) throw new Error('WebTorrent CDN failed to load');
+        state.client = new window.WebTorrent();
+        state.client.on('error', (err) => log(`Client error: ${err.message}`));
+        state.client.on('warning', (err) => log(`Client warning: ${err.message}`));
+        log('WebTorrent client initialized');
+        return state.client;
+      }
+
+      function pickBestMediaFile(files) {
+        const list = files.map((f) => ({ name: f.name, length: f.length, file: f }));
+        const extensionMatches = list.filter((item) => mediaExt.some((ext) => item.name.toLowerCase().endsWith(ext)));
+
+        if (extensionMatches.length === 1) {
+          return extensionMatches[0].file;
+        }
+
+        if (extensionMatches.length > 1 && window.Fuse) {
+          const fuse = new window.Fuse(extensionMatches, {
+            includeScore: true,
+            keys: ['name'],
+            threshold: 0.5
+          });
+          const ranked = fuse.search('1080p mp4 web x264').map((result) => result.item);
+          return (ranked[0] || extensionMatches.sort((a, b) => b.length - a.length)[0]).file;
+        }
+
+        return files.slice().sort((a, b) => b.length - a.length)[0];
+      }
+
+      function setupAxiosRetry() {
+        if (!window.axios || !window.axiosRetry) {
+          log('Axios retry module unavailable; metadata helper disabled.');
+          return;
+        }
+
+        if (window.__torrentAxiosRetryConfigured) return;
+
+        const retryFactory = window.axiosRetry.default || window.axiosRetry;
+        retryFactory(window.axios, {
+          retries: 2,
+          retryDelay: retryFactory.exponentialDelay,
+          retryCondition: (err) => retryFactory.isNetworkError(err) || retryFactory.isRetryableError(err)
+        });
+        window.__torrentAxiosRetryConfigured = true;
+      }
+
+      async function fetchMetadataWithRetry(infoHash, token) {
+        if (!window.axios) return null;
+
+        setupAxiosRetry();
+
+        try {
+          const metadataUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://itorrents.org/torrent/${infoHash}.torrent`)}`;
+          const response = await window.axios.get(metadataUrl, { timeout: 5000 });
+
+          if (token !== state.activeToken) return null;
+          log(`Metadata helper request succeeded (${response.status})`);
+          return response.data;
+        } catch (error) {
+          if (token !== state.activeToken) return null;
+          log(`Metadata helper request skipped/failed: ${error.message}`);
+          return null;
+        }
+      }
+
+      function stopCurrentTorrent({ clearRoute } = { clearRoute: false }) {
+        if (state.metricTimer) {
+          clearInterval(state.metricTimer);
+          state.metricTimer = 0;
+        }
+
+        if (state.activeTorrent) {
+          log(`Destroying active torrent: ${state.activeTorrent.infoHash}`);
+          state.activeTorrent.destroy();
+          state.activeTorrent = null;
+        }
+
+        state.activeToken = null;
+        ui.player.removeAttribute('src');
+        ui.player.load();
+        ui.selectedFile.textContent = 'No file selected.';
+        setMetricStatus('idle');
+        resetMetrics();
+
+        if (clearRoute) {
+          updateRoute('');
+        }
+      }
+
+      function startMetricLoop(torrent, token) {
+        if (state.metricTimer) clearInterval(state.metricTimer);
+
+        state.metricTimer = setInterval(() => {
+          if (token !== state.activeToken || !torrent) return;
+          const pct = `${(torrent.progress * 100).toFixed(1)}%`;
+          ui.metricProgress.textContent = pct;
+          ui.metricPeers.textContent = String(torrent.numPeers || 0);
+          ui.metricSpeed.textContent = `${Math.round((torrent.downloadSpeed || 0) / 1024)} KiB/s`;
+        }, 1000);
+      }
+
+      function setLoadingState(isLoading) {
+        ui.streamBtn.disabled = isLoading;
+        ui.input.disabled = isLoading;
+        setMetricStatus(isLoading ? 'connecting' : 'idle');
+      }
+
+      function attachTorrentEvents(torrent, token) {
+        torrent.on('done', () => {
+          if (token !== state.activeToken) return;
+          setMetricStatus('completed');
+          log('Torrent download completed.');
+        });
+
+        torrent.on('warning', (event) => {
+          if (token !== state.activeToken) return;
+          log(`Torrent warning: ${event.message}`);
+        });
+
+        torrent.on('error', (event) => {
+          if (token !== state.activeToken) return;
+          log(`Torrent error: ${event.message}`);
+          setMetricStatus('error');
+        });
+      }
+
+      async function startStream(rawTorrentId) {
+        if (state.isBootstrapping) {
+          log('Another stream request is in progress.');
+          return;
+        }
+
+        const normalized = normalizeTorrentId(rawTorrentId);
+        if (!normalized.ok) {
+          log(normalized.message);
+          return;
+        }
+
+        const torrentId = normalized.value;
+        state.isBootstrapping = true;
+        setLoadingState(true);
+
+        try {
+          stopCurrentTorrent();
+
+          const wt = bootClient();
+          const token = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+          state.activeToken = token;
+
+          updateRoute(torrentId);
+          log(`Adding torrent: ${torrentId}`);
+
+          wt.add(torrentId, async (torrent) => {
+            if (token !== state.activeToken) {
+              torrent.destroy();
+              return;
+            }
+
+            state.activeTorrent = torrent;
+            setMetricStatus('streaming');
+            log(`Metadata received. Files: ${torrent.files.length}`);
+
+            if (!torrent.files.length) {
+              log('No files found in torrent payload.');
+              setMetricStatus('error');
+              return;
+            }
+
+            fetchMetadataWithRetry(torrent.infoHash, token);
+
+            const file = pickBestMediaFile(torrent.files);
+            ui.selectedFile.textContent = `Streaming: ${file.name} (${(file.length / 1024 / 1024).toFixed(2)} MB)`;
+            log(`Selected file: ${file.name}`);
+
+            file.renderTo(ui.player, { autoplay: false }, (err) => {
+              if (token !== state.activeToken) return;
+              if (err) {
+                log(`Render error: ${err.message}`);
+                setMetricStatus('error');
+              } else {
+                log('Video attached to player');
+              }
+            });
+
+            attachTorrentEvents(torrent, token);
+            startMetricLoop(torrent, token);
+          });
+        } catch (error) {
+          setMetricStatus('error');
+          log(`Start stream failed: ${error.message}`);
+        } finally {
+          state.isBootstrapping = false;
+          setLoadingState(false);
+        }
+      }
+
+      function bootFromRoute() {
+        const routedTorrent = readRoute();
+        if (!routedTorrent) return;
+        ui.input.value = routedTorrent;
+        startStream(routedTorrent);
+      }
+
+      function registerHandlers() {
+        ui.streamBtn.addEventListener('click', () => startStream(ui.input.value));
+
+        ui.stopBtn.addEventListener('click', () => {
+          stopCurrentTorrent({ clearRoute: true });
+          log('Stopped active stream.');
+        });
+
+        ui.input.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            startStream(ui.input.value);
+          }
+        });
+
+        window.addEventListener('popstate', () => {
+          const routedTorrent = readRoute();
+          if (!routedTorrent) {
+            stopCurrentTorrent();
+            return;
+          }
+
+          if (routedTorrent !== ui.input.value.trim()) {
+            ui.input.value = routedTorrent;
+            startStream(routedTorrent);
+          }
+        });
+
+        window.addEventListener('beforeunload', () => {
+          try {
+            stopCurrentTorrent();
+            if (state.client) state.client.destroy();
+          } catch (_) {
+            // no-op
+          }
+        });
+      }
+
+      log('UI ready. Paste a magnet link and click Start Stream.');
+      registerHandlers();
+      bootFromRoute();
+    })();
+  </script>
+</body>
+</html>

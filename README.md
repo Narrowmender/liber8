@@ -58,3 +58,22 @@ We are proud to announce that we are supported by Cloudflare's [Project Alexandr
 <a href="https://www.cloudflare.com">
    <img alt="Cloudflare Logo" src="https://raw.githubusercontent.com/is-a-dev/register/main/media/cloudflare.png" height="96">
 </a>
+
+## Front-end WebTorrent streaming demo
+A standalone CDN-powered example is available at `examples/webtorrent-streaming.html`.
+
+It demonstrates browser-side operational handling for:
+- validated torrent input handling and basic anti-injection guards
+- WebTorrent client lifecycle and stop/cleanup controls
+- automatic media file selection
+- stream rendering to `<video>`
+- URL-route state via query string and browser history events
+- optional metadata retry flow via Axios + axios-retry
+
+Open it in a local static server, for example:
+
+```bash
+python -m http.server 8080
+```
+
+Then visit `http://localhost:8080/examples/webtorrent-streaming.html`.
